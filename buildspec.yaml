@@ -4,13 +4,33 @@ env:
   variables:
     AWS_REGION: ap-south-1
     ECR_REPO: 800762100828.dkr.ecr.ap-south-1.amazonaws.com
+    CLUSTER_NAME: demo-cluster-1
 
 phases:
   pre_build:
     commands:
       - echo Logging in to Amazon ECR...
       - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO
+      
+  build:
+    commands:
+      - echo Build started on `date`
       - docker build -t webapp .
-      - docker tag webapp:latest 800762100828.dkr.ecr.ap-south-1.amazonaws.com/webapp:latest
-      - docker push 800762100828.dkr.ecr.ap-south-1.amazonaws.com/webapp:latest
-      - echo pushed to ECR repository
+      - docker tag webapp:latest $ECR_REPO/webapp:latest
+      - docker push $ECR_REPO/webapp:latest
+      - echo image build and push completed
+
+  post_build:
+    commands:
+      - cd ./k8s
+      - aws eks --region $AWS_REGION update-kubeconfig --name k8s-aws-cluster
+      - kubectl get ns webapp || kubectl create namespace webapp
+      - kubectl apply -f k8s-aws.yaml
+      - kubectl get pods -nwebapp
+      - kubectl get svc -nwebapp
+      - echo kubernetes deployment completed.
+
+artifacts:
+  files:
+    - k8s/k8s-aws.yaml
+      
