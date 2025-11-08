@@ -1,13 +1,14 @@
 version: 0.2
+
 env:
   variables:
     AWS_REGION: ap-south-1
-    ECR_REPO: 296062577418.dkr.ecr.ap-south-1.amazonaws.com
-    CLUSTEER_NAME: demo-cluster-1
+    ECR_REPO: 800762100828.dkr.ecr.ap-south-1.amazonaws.com
+    CLUSTER_NAME: demo-cluster-1
 
 phases:
   install:
-    commands: 
+    commands:
       - curl -o /usr/local/bin/kubectl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
       - chmod +x /usr/local/bin/kubectl
       - kubectl version --client
@@ -16,27 +17,30 @@ phases:
       - tar xz -C /usr/local/bin -f eksctl_$(uname -s)_amd64.tar.gz
       - eksctl version
 
-
+  
+  
   pre_build:
     commands:
       - echo Logging in to Amazon ECR...
-      - aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin $ECR_REPO
+      - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO
       
   build:
     commands:
       - echo Building the Docker image...
       - docker build -t webapp .
-      - docker tag webapp:latest 296062577418.dkr.ecr.ap-south-1.amazonaws.com/webapp:latest
-      - docker push 296062577418.dkr.ecr.ap-south-1.amazonaws.com/webapp:latest
-      - echo Image build and push completed.
-  
+      - docker tag webapp:latest $ECR_REPO/webapp:latest
+      - docker push $ECR_REPO/webapp:latest
+      - echo image build and push completed
+
   post_build:
     commands:
       - cd ./k8s
-      - echo Updating Kubernetes deployment...
-      - aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTEER_NAME
-      - kubectl get ns webapp || kubectl create namespace webapp 
+      - aws eks --region $AWS_REGION update-kubeconfig --name k8s-aws-cluster
+      - kubectl get ns webapp || kubectl create namespace webapp
       - kubectl apply -f k8s-aws.yaml
-      - kubectl get pods -n webapp
-      - kubectl get svc -n webapp
-      - echo Deployment to EKS completed.
+      - kubectl get pods -nwebapp
+      - kubectl get svc -nwebapp
+      - echo kubernetes deployment completed.
+
+
+      
